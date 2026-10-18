@@ -1,5 +1,5 @@
 // Type definitions matching backend types
-export type CallStatus = 'in_progress' | 'completed' | 'abandoned';
+export type CallStatus = 'in_progress' | 'closed';
 export type CallOutcome = 
   | 'next_step_agreed' 
   | 'agreed_to_receive_report' 
@@ -20,7 +20,7 @@ export interface Call {
   call_context?: string;
   status: CallStatus;
   outcome?: CallOutcome;
-  next_action?: string;
+  agreed_next_action?: string;
   prospect_key_words?: string;
   created_at: string;
   updated_at: string;
@@ -34,7 +34,7 @@ export interface StageResult {
   stage_name: string;
   quick_tap_events: string[];
   prospect_words?: string;
-  notes?: string;
+  stage_notes?: string;
   created_at: string;
 }
 
@@ -50,14 +50,14 @@ export interface SaveStageInput {
   stage_name: string;
   quick_tap_events: string[];
   prospect_words?: string;
-  notes?: string;
+  stage_notes?: string;
 }
 
 export interface CloseCallInput {
-  reached_stage: number;
+  reached_stage_number: number;
   outcome: CallOutcome;
   prospect_key_words?: string;
-  next_action?: string;
+  agreed_next_action?: string;
 }
 
 export interface AnalysisResult {

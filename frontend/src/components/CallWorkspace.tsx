@@ -68,7 +68,7 @@ export default function CallWorkspace() {
     stage_name: string;
     quick_tap_events: string[];
     prospect_words?: string;
-    notes?: string;
+    stage_notes?: string;
   }) => {
     if (!id) return;
     await saveStage(id, data);
@@ -125,7 +125,7 @@ export default function CallWorkspace() {
 
   const currentStageResult = call.stage_results?.find(s => s.stage_number === currentStage);
   const nextStage = STAGES.find(s => s.number === currentStage + 1);
-  const isCompleted = call.status === 'completed';
+  const isCompleted = call.status === 'closed';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -212,7 +212,7 @@ export default function CallWorkspace() {
                       stage_name: STAGES[currentStage - 1].name,
                       quick_tap_events: currentStageResult?.quick_tap_events || [],
                       prospect_words: currentStageResult?.prospect_words,
-                      notes: currentStageResult?.notes
+                      stage_notes: currentStageResult?.stage_notes
                     })}
                     className="flex-1 py-4 bg-blue-800 text-white font-bold text-lg rounded-lg hover:bg-blue-900"
                   >

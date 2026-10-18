@@ -7,10 +7,10 @@ interface CloseCallModalProps {
   onClose: () => void;
   currentStage: number;
   onSubmit: (data: {
-    reached_stage: number;
+    reached_stage_number: number;
     outcome: CallOutcome;
     prospect_key_words?: string;
-    next_action?: string;
+    agreed_next_action?: string;
   }) => Promise<void>;
 }
 
@@ -30,10 +30,10 @@ export default function CloseCallModal({ isOpen, onClose, currentStage, onSubmit
     setError('');
     try {
       await onSubmit({
-        reached_stage: reachedStage,
+        reached_stage_number: reachedStage,
         outcome,
         prospect_key_words: prospectKeyWords || undefined,
-        next_action: nextAction || undefined
+        agreed_next_action: nextAction || undefined
       });
       onClose();
     } catch (err) {

@@ -12,7 +12,7 @@ interface StageContentProps {
     stage_name: string;
     quick_tap_events: string[]; 
     prospect_words?: string; 
-    notes?: string;
+    stage_notes?: string;
   }) => Promise<void>;
 }
 
@@ -28,7 +28,7 @@ export default function StageContent({ stageNumber, stageResult, onSave }: Stage
     if (stageResult) {
       setSelectedEvents(stageResult.quick_tap_events || []);
       setProspectWords(stageResult.prospect_words || '');
-      setNotes(stageResult.notes || '');
+      setNotes(stageResult.stage_notes || '');
     } else {
       setSelectedEvents([]);
       setProspectWords('');
@@ -55,7 +55,7 @@ export default function StageContent({ stageNumber, stageResult, onSave }: Stage
         stage_name: stage.name,
         quick_tap_events: selectedEvents,
         prospect_words: prospectWords || undefined,
-        notes: notes || undefined
+        stage_notes: notes || undefined
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);

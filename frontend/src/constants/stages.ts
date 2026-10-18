@@ -1,3 +1,7 @@
+// IMPORTANT: These stage names must match backend/src/types/index.ts STAGE_NAMES exactly.
+// Any changes to backend stage names require updating this file.
+// Source of truth: backend/src/types/index.ts - STAGE_NAMES constant
+
 export const STAGES = [
   {
     number: 1,
