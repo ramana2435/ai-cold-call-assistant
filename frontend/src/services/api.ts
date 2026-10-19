@@ -1,4 +1,4 @@
-import { Call, CreateCallInput, SaveStageInput, CloseCallInput, AnalysisResult, StageRecommendation, SuggestedResponse, CallIntelligence, ProductProfile, OrganizationProfile, CreateProductProfileInput, CreateOrganizationProfileInput, ReferenceIntelligenceResponse } from '../types';
+import { Call, CreateCallInput, SaveStageInput, CloseCallInput, AnalysisResult, StageRecommendation, SuggestedResponseEnhanced, CallIntelligence, ProductProfile, OrganizationProfile, CreateProductProfileInput, CreateOrganizationProfileInput, ReferenceIntelligenceResponse } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
@@ -66,13 +66,13 @@ export async function suggestStage(callId: string, conversationSummary?: string)
   return handleResponse<StageRecommendation>(response);
 }
 
-export async function suggestResponse(callId: string, prospectLastWords: string): Promise<SuggestedResponse> {
-  const response = await fetch(`${API_BASE}/calls/${callId}/suggest-response`, {
+export async function suggestResponse(callId: string, prospectLastWords: string): Promise<SuggestedResponseEnhanced> {
+  const response = await fetch(`${API_BASE}/calls/${callId}/suggest-response-with-references`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prospectLastWords })
   });
-  return handleResponse<SuggestedResponse>(response);
+  return handleResponse<SuggestedResponseEnhanced>(response);
 }
 
 export async function getIntelligence(callId: string): Promise<CallIntelligence> {

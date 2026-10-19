@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { analyzeCall, suggestStage, suggestResponse, getIntelligence } from '../services/api';
-import { AnalysisResult, StageRecommendation, SuggestedResponse, CallIntelligence } from '../types';
+import { AnalysisResult, StageRecommendation, SuggestedResponseEnhanced, CallIntelligence } from '../types';
 import ReferenceExamplesPanel from './ReferenceExamplesPanel';
 
 interface AIActionsPanelProps {
@@ -13,7 +13,7 @@ export default function AIActionsPanel({ callId, currentStage, isReadOnly = fals
   const [loading, setLoading] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [recommendation, setRecommendation] = useState<StageRecommendation | null>(null);
-  const [response, setResponse] = useState<SuggestedResponse | null>(null);
+  const [responseResult, setResponseResult] = useState<SuggestedResponseEnhanced | null>(null);
   const [intelligence, setIntelligence] = useState<CallIntelligence | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +53,7 @@ export default function AIActionsPanel({ callId, currentStage, isReadOnly = fals
       const lastWords = prompt('Enter prospect\'s last words:');
       if (!lastWords) return;
       const result = await suggestResponse(callId, lastWords);
-      setResponse(result);
+      setResponseResult(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Response suggestion failed');
     } finally {
@@ -190,11 +190,51 @@ export default function AIActionsPanel({ callId, currentStage, isReadOnly = fals
         </div>
       )}
 
-      {response && (
-        <div className="bg-white rounded-lg p-4 space-y-2">
-          <h4 className="font-semibold text-gray-900">Suggested Response</h4>
-          <p className="italic">"{response.text}"</p>
-          <p className="text-sm text-gray-600"><strong>Context:</strong> {response.context}</p>
+      {responseResult && (
+        <div className="space-y-3">
+          {/* Primary Recommendation */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-blue-900 text-sm">✨ Recommended Response</h4>
+              <button
+                onClick={() => navigator.clipboard.writeText(responseResult.primary.text)}
+                className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors"
+                title="Copy to clipboard"
+              >
+                📋 Copy
+              </button>
+            </div>
+            <p className="text-gray-900">{responseResult.primary.text}</p>
+            <p className="text-xs text-blue-700 italic">
+              <strong>Why:</strong> {responseResult.primary.explanation}
+            </p>
+          </div>
+
+          {/* Alternatives */}
+          {responseResult.alternatives && responseResult.alternatives.length > 0 && (
+            <div className="space-y-2">
+              {responseResult.alternatives.map((alt, idx) => (
+                <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-gray-700 text-xs">
+                      Alternative {idx + 1}
+                    </h4>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(alt.text)}
+                      className="text-xs bg-gray-600 text-white px-2 py-1 rounded hover:bg-gray-700 transition-colors"
+                      title="Copy to clipboard"
+                    >
+                      📋 Copy
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-900">{alt.text}</p>
+                  <p className="text-xs text-gray-600 italic">
+                    <strong>Why:</strong> {alt.explanation}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

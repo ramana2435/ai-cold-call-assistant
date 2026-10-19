@@ -6,10 +6,22 @@ import request from 'supertest';
 import { createApp } from '../app';
 import * as llmService from '../services/llmService';
 import * as callService from '../services/callService';
+import * as speechService from '../services/speechService';
 
 // Mock the services
 jest.mock('../services/llmService');
 jest.mock('../services/callService');
+jest.mock('../services/speechService');
+jest.mock('../services/knowledgeService', () => ({
+  getCallKnowledgeSnapshot: jest.fn().mockResolvedValue(null),
+}));
+jest.mock('../services/referenceIntelligenceService', () => ({
+  getRelevantExamples: jest.fn().mockResolvedValue({
+    examples: [],
+    guidance: 'Test guidance',
+    totalAvailable: 0,
+  }),
+}));
 
 describe('LLM API Endpoints', () => {
   const app = createApp();
@@ -258,18 +270,133 @@ describe('LLM API Endpoints', () => {
     });
   });
 
+  describe('POST /calls/:id/suggest-response-with-references', () => {
+    it('should suggest responses with references successfully', async () => {
+      const mockEnhancedSuggestions = {
+        primary: {
+          text: 'That\'s great to hear! Tell me more about your current process.',
+          explanation: 'Acknowledges their statement and encourages them to share more details, helping you understand their needs.',
+        },
+        alternatives: [
+          {
+            text: 'I appreciate you sharing that. How is that working for you?',
+            explanation: 'Shows appreciation and asks an open-ended question to uncover pain points.',
+          },
+          {
+            text: 'Interesting! What challenges are you facing with that approach?',
+            explanation: 'Directly explores potential problems they might be experiencing.',
+          },
+        ],
+        referenceIntelligence: {
+          examples: [
+            {
+              id: 'ref-1',
+              relevanceScore: 0.85,
+              matchReason: 'Similar objection handling',
+              outcome: 'next_step_agreed',
+              excerpt: 'Prospect: We use spreadsheets...\nSales: Tell me more about that...',
+              metadata: {
+                prospect_role: 'Manager',
+                company_kind: 'Technology',
+                duration_seconds: '180',
+                turns: 12,
+              },
+            },
+          ],
+          guidance: 'Focus on understanding their current process before pitching.',
+          totalAvailable: 5,
+        },
+      };
+
+      (callService.getCallById as jest.Mock).mockResolvedValue(mockCall);
+      (speechService.getFullTranscript as jest.Mock).mockResolvedValue('Recent call transcript here');
+      (llmService.suggestResponseWithReferences as jest.Mock).mockResolvedValue(mockEnhancedSuggestions);
+
+      const response = await request(app)
+        .post(`/calls/${mockCallId}/suggest-response-with-references`)
+        .send({
+          prospectLastWords: 'We use spreadsheets for everything',
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.primary).toBeDefined();
+      expect(response.body.data.primary.text).toBeTruthy();
+      expect(response.body.data.primary.explanation).toBeTruthy();
+      expect(response.body.data.alternatives).toHaveLength(2);
+      expect(response.body.data.referenceIntelligence).toBeDefined();
+      expect(llmService.suggestResponseWithReferences).toHaveBeenCalled();
+    });
+
+    it('should validate prospectLastWords is required', async () => {
+      const response = await request(app)
+        .post(`/calls/${mockCallId}/suggest-response-with-references`)
+        .send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+    });
+
+    it('should return 404 if call not found', async () => {
+      (callService.getCallById as jest.Mock).mockResolvedValue(null);
+
+      const response = await request(app)
+        .post(`/calls/${mockCallId}/suggest-response-with-references`)
+        .send({
+          prospectLastWords: 'Not interested',
+        });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toBe('Call not found');
+    });
+
+    it('should handle do-not-call scenario appropriately', async () => {
+      const mockDoNotCallResponse = {
+        primary: {
+          text: 'I completely understand. I\'ll make sure you\'re removed from our list. Thank you for your time.',
+          explanation: 'Respects their request and acknowledges their preference.',
+        },
+        alternatives: [
+          {
+            text: 'No problem at all. I\'ll update our records right away. Have a great day.',
+            explanation: 'Professional acknowledgment with immediate action.',
+          },
+        ],
+        referenceIntelligence: {
+          examples: [],
+          guidance: 'Respect the do-not-call request and end the call professionally.',
+          totalAvailable: 0,
+        },
+      };
+
+      (callService.getCallById as jest.Mock).mockResolvedValue(mockCall);
+      (speechService.getFullTranscript as jest.Mock).mockResolvedValue('Do not call conversation');
+      (llmService.suggestResponseWithReferences as jest.Mock).mockResolvedValue(mockDoNotCallResponse);
+
+      const response = await request(app)
+        .post(`/calls/${mockCallId}/suggest-response-with-references`)
+        .send({
+          prospectLastWords: 'Please do not call me again',
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.primary.text).toMatch(/understand|respect|remove|list/i);
+    });
+  });
+
   describe('GET /calls/:id/intelligence', () => {
     it('should get call intelligence successfully', async () => {
       const mockIntelligence = {
+        callId: mockCallId,
+        stageProgression: [{ stage: 1 }, { stage: 2 }],
         overallSentiment: 'positive',
-        keyTopics: ['product features', 'pricing', 'timeline'],
-        prospectInterestLevel: 'high',
-        recommendedNextActions: [
+        criticalPhrases: ['product features', 'pricing', 'timeline'],
+        recommendedActions: [
           'Schedule demo',
           'Send pricing information',
           'Follow up next week',
         ],
-        conversationSummary: 'Prospect is interested in the product and wants more details',
+        confidenceScore: 0.85,
       };
 
       (callService.getCallById as jest.Mock).mockResolvedValue(mockCall);
@@ -304,11 +431,12 @@ describe('LLM API Endpoints', () => {
 
     it('should handle no conversation context', async () => {
       const mockIntelligence = {
+        callId: mockCallId,
+        stageProgression: [],
         overallSentiment: 'neutral',
-        keyTopics: [],
-        prospectInterestLevel: 'low',
-        recommendedNextActions: ['Start the conversation'],
-        conversationSummary: 'No conversation recorded yet.',
+        criticalPhrases: [],
+        recommendedActions: ['Start the conversation'],
+        confidenceScore: 0.5,
       };
 
       (callService.getCallById as jest.Mock).mockResolvedValue(mockCall);
@@ -318,7 +446,8 @@ describe('LLM API Endpoints', () => {
         .get(`/calls/${mockCallId}/intelligence`);
 
       expect(response.status).toBe(200);
-      expect(response.body.data.conversationSummary).toBe('No conversation recorded yet.');
+      expect(response.body.data.confidenceScore).toBe(0.5);
+      expect(response.body.data.recommendedActions).toContain('Start the conversation');
     });
 
     it('should handle invalid API key error', async () => {

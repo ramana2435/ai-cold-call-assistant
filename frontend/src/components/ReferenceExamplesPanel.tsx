@@ -66,7 +66,7 @@ export default function ReferenceExamplesPanel({
 
   return (
     <div className="bg-indigo-50 rounded-lg shadow p-4 space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h4 className="text-sm font-semibold text-indigo-900 flex items-center gap-1">
           &#127919; Reference Examples
           <span className="text-xs font-normal text-indigo-600 ml-1">(Stage {currentStage})</span>

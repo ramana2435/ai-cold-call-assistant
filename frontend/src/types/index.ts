@@ -81,6 +81,17 @@ export interface SuggestedResponse {
   priority: number;
 }
 
+export interface SuggestedResponseItem {
+  text: string;
+  explanation: string;
+}
+
+export interface SuggestedResponseEnhanced {
+  primary: SuggestedResponseItem;
+  alternatives: SuggestedResponseItem[];
+  referenceIntelligence?: ReferenceIntelligenceResponse;
+}
+
 export interface CallIntelligence {
   callId: string;
   stageProgression: Array<{ stage: number; duration?: number }>;

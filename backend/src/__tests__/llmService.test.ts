@@ -5,7 +5,6 @@ import {
   suggestResponse,
   getCallIntelligence,
   clearConversationContext,
-  resetGeminiClient,
 } from '../services/llmService';
 import { STAGE_NAMES } from '../types';
 
@@ -19,7 +18,6 @@ describe('LLM Service', () => {
   beforeEach(() => {
     // Reset all mocks before each test
     jest.clearAllMocks();
-    resetGeminiClient(); // Reset the singleton client
     mockGenerateContent = jest.fn();
 
     // Setup mock for generateContent
@@ -317,10 +315,9 @@ describe('LLM Service', () => {
     it('should return intelligence summary with conversation history', async () => {
       const mockResponse = {
         overallSentiment: 'positive',
-        keyTopics: ['product features', 'pricing', 'next steps'],
-        prospectInterestLevel: 'high',
-        recommendedNextActions: ['Send proposal', 'Schedule follow-up'],
-        conversationSummary: 'Productive call with engaged prospect',
+        criticalPhrases: ['product features', 'pricing', 'next steps'],
+        recommendedActions: ['Send proposal', 'Schedule follow-up'],
+        confidenceScore: 0.85,
       };
 
       mockGenerateContent.mockResolvedValue({
@@ -335,28 +332,25 @@ describe('LLM Service', () => {
       const result = await getCallIntelligence('call-intel');
 
       expect(result.overallSentiment).toBe('positive');
-      expect(result.keyTopics.length).toBeGreaterThan(0);
-      expect(['high', 'medium', 'low']).toContain(result.prospectInterestLevel);
-      expect(result.recommendedNextActions.length).toBeGreaterThan(0);
-      expect(result.conversationSummary).toBeTruthy();
+      expect(result.criticalPhrases.length).toBeGreaterThan(0);
+      expect(result.recommendedActions.length).toBeGreaterThan(0);
+      expect(result.confidenceScore).toBeGreaterThan(0);
     });
 
     it('should return default intelligence for empty conversation', async () => {
       const result = await getCallIntelligence('call-no-history');
 
       expect(result.overallSentiment).toBe('neutral');
-      expect(result.keyTopics).toEqual([]);
-      expect(result.prospectInterestLevel).toBe('low');
-      expect(result.conversationSummary).toContain('No conversation');
+      expect(result.criticalPhrases).toEqual([]);
+      expect(result.confidenceScore).toBe(0.5);
     });
 
     it('should analyze complete conversation', async () => {
       const mockResponse = {
         overallSentiment: 'neutral',
-        keyTopics: ['initial contact'],
-        prospectInterestLevel: 'medium',
-        recommendedNextActions: ['Continue conversation'],
-        conversationSummary: 'Early stage call',
+        criticalPhrases: ['initial contact'],
+        recommendedActions: ['Continue conversation'],
+        confidenceScore: 0.7,
       };
 
       mockGenerateContent.mockResolvedValue({
@@ -371,7 +365,7 @@ describe('LLM Service', () => {
       
       const result = await getCallIntelligence('call-complete');
 
-      expect(result.conversationSummary).toBeTruthy();
+      expect(result.confidenceScore).toBeGreaterThan(0);
     });
   });
 
@@ -398,7 +392,7 @@ describe('LLM Service', () => {
 
       // Get intelligence should show empty conversation
       const result = await getCallIntelligence('call-clear');
-      expect(result.conversationSummary).toContain('No conversation');
+      expect(result.criticalPhrases).toEqual([]);
     });
 
     it('should not affect other call contexts', async () => {
@@ -425,10 +419,9 @@ describe('LLM Service', () => {
       // call-2 should still have history
       const mockIntelResponse = {
         overallSentiment: 'neutral',
-        keyTopics: ['test'],
-        prospectInterestLevel: 'low',
-        recommendedNextActions: ['test'],
-        conversationSummary: 'Has conversation',
+        criticalPhrases: ['test'],
+        recommendedActions: ['test'],
+        confidenceScore: 0.6,
       };
 
       mockGenerateContent.mockResolvedValue({
@@ -438,7 +431,7 @@ describe('LLM Service', () => {
       });
 
       const result = await getCallIntelligence('call-2');
-      expect(result.conversationSummary).not.toContain('No conversation');
+      expect(result.confidenceScore).toBeGreaterThan(0.5);
     });
   });
 
