@@ -31,7 +31,7 @@ export default function CallCard({ call, onClick }: CallCardProps) {
   };
 
   const getStatusBadgeColor = () => {
-    if (call.status === 'completed') return 'bg-gray-200 text-gray-700';
+    if (call.status === 'closed') return 'bg-gray-200 text-gray-700';
     return 'bg-blue-100 text-blue-700';
   };
 
@@ -51,7 +51,7 @@ export default function CallCard({ call, onClick }: CallCardProps) {
             {getLastStage()}
           </span>
           <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor()}`}>
-            {call.status === 'completed' ? 'Closed' : 'Active'}
+            {call.status === 'closed' ? 'Closed' : 'Active'}
           </span>
         </div>
       </div>

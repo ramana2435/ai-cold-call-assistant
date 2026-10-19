@@ -225,3 +225,55 @@ INSERT INTO calls (
   'in_progress'
 );
 */
+
+
+-- =====================================================
+-- Table: transcript_segments
+-- =====================================================
+-- Stores real-time transcript segments from speech-to-text
+-- Created: Module 1 Speech-to-Text MVP
+CREATE TABLE IF NOT EXISTS transcript_segments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  call_id UUID NOT NULL REFERENCES calls(id) ON DELETE CASCADE,
+  
+  -- Transcript content
+  text TEXT NOT NULL,
+  speaker VARCHAR(20), -- 'salesperson' or 'prospect' (when supported)
+  
+  -- Confidence and timing
+  confidence NUMERIC(4,3) CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1)),
+  start_time NUMERIC, -- seconds from call start
+  end_time NUMERIC, -- seconds from call start
+  
+  -- Finalization status
+  is_final BOOLEAN NOT NULL DEFAULT false, -- true = finalized, false = partial
+  
+  -- Language detection
+  language VARCHAR(10), -- e.g., 'en', 'te', 'en-US'
+  
+  -- Timestamp
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT valid_timing CHECK (
+    (start_time IS NULL AND end_time IS NULL) OR
+    (start_time IS NOT NULL AND end_time IS NOT NULL AND end_time >= start_time)
+  )
+);
+
+-- Create indexes for transcript segments (idempotent)
+CREATE INDEX IF NOT EXISTS idx_transcript_segments_call_id ON transcript_segments(call_id);
+CREATE INDEX IF NOT EXISTS idx_transcript_segments_is_final ON transcript_segments(is_final);
+CREATE INDEX IF NOT EXISTS idx_transcript_segments_created_at ON transcript_segments(created_at DESC);
+
+-- Composite index for fetching call transcripts in chronological order
+CREATE INDEX IF NOT EXISTS idx_transcript_segments_call_time ON transcript_segments(call_id, start_time);
+
+-- Enable RLS on transcript_segments table
+ALTER TABLE transcript_segments ENABLE ROW LEVEL SECURITY;
+
+-- Comments
+COMMENT ON TABLE transcript_segments IS 'Real-time speech-to-text transcript segments with timing and speaker identification';
+COMMENT ON COLUMN transcript_segments.is_final IS 'False for partial/interim results, true for finalized transcript';
+COMMENT ON COLUMN transcript_segments.speaker IS 'Speaker identification - currently microphone input only (salesperson side)';
+COMMENT ON COLUMN transcript_segments.confidence IS 'Speech recognition confidence score between 0 and 1';

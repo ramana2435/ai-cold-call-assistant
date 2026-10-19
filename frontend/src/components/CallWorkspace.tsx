@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getCall, saveStage, closeCall, getCallKnowledge } from '../services/api';
-import { Call, CloseCallInput } from '../types';
+import { Call, CloseCallInput, SuggestedResponseEnhanced } from '../types';
 import { STAGES } from '../constants/stages';
 import StageNavigation from './StageNavigation';
 import StageContent from './StageContent';
@@ -9,6 +9,7 @@ import AIActionsPanel from './AIActionsPanel';
 import AudioPanel from './AudioPanel';
 import CloseCallModal from './CloseCallModal';
 import VisualAssistancePanel from './VisualAssistancePanel';
+import AutoResponsePanel from './AutoResponsePanel';
 
 export default function CallWorkspace() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +25,12 @@ export default function CallWorkspace() {
   
   // Knowledge profiles
   const [knowledgeSnapshot, setKnowledgeSnapshot] = useState<any>(null);
+  
+  // Auto-response state
+  const [autoResponse, setAutoResponse] = useState<SuggestedResponseEnhanced | null>(null);
+  const [autoResponseStatus, setAutoResponseStatus] = useState<'listening' | 'processing' | 'ready' | 'unavailable' | 'error'>('listening');
+  const [autoResponseError, setAutoResponseError] = useState<string | null>(null);
+  const [autoResponseContextSource, setAutoResponseContextSource] = useState<'prospectWords' | 'transcript' | 'limited'>('transcript');
   
   // Track current form state from StageContent
   const [currentFormState, setCurrentFormState] = useState<{
@@ -132,6 +139,21 @@ export default function CallWorkspace() {
     if (!id) return;
     await closeCall(id, data);
     navigate('/');
+  };
+
+  const handleAutoResponse = (response: SuggestedResponseEnhanced, contextSource: string) => {
+    console.log('[CallWorkspace] Received auto-response:', response);
+    setAutoResponse(response);
+    setAutoResponseStatus('ready');
+    setAutoResponseContextSource(contextSource as 'prospectWords' | 'transcript' | 'limited');
+    setAutoResponseError(null);
+  };
+
+  const handleAutoResponseError = (error: string) => {
+    console.error('[CallWorkspace] Auto-response error:', error);
+    setAutoResponseStatus('error');
+    setAutoResponseError(error);
+    // Preserve last valid response
   };
 
   const handleSaveCurrentStage = async () => {
@@ -362,7 +384,18 @@ export default function CallWorkspace() {
             {!isCompleted && (
               <>
                 <VisualAssistancePanel callId={call.id} />
-                <AudioPanel callId={call.id} />
+                <AutoResponsePanel
+                  callId={call.id}
+                  autoResponse={autoResponse}
+                  status={autoResponseStatus}
+                  error={autoResponseError}
+                  contextSource={autoResponseContextSource}
+                />
+                <AudioPanel
+                  callId={call.id}
+                  onAutoResponse={handleAutoResponse}
+                  onAutoResponseError={handleAutoResponseError}
+                />
               </>
             )}
           </div>

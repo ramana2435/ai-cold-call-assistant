@@ -4,6 +4,10 @@ import config from './config';
 import healthRouter from './routes/health';
 import callsRouter from './routes/calls';
 import llmRouter from './routes/llm';
+import speechRouter from './routes/speech';
+import knowledgeRouter from './routes/knowledge';
+import speakerCorrectionsRouter from './routes/speakerCorrections';
+import referenceIntelligenceRouter from './routes/referenceIntelligence';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 /**
@@ -32,6 +36,12 @@ export function createApp(): Express {
   app.use('/health', healthRouter);
   app.use('/calls', callsRouter);
   app.use('/calls', llmRouter); // LLM routes under /calls/:id/*
+  app.use('/calls', speechRouter); // Speech routes under /calls/:id/transcript/*
+  app.use('/calls', speakerCorrectionsRouter); // Speaker correction routes
+  app.use('/calls', referenceIntelligenceRouter); // Reference intelligence routes
+  app.use('/calls', knowledgeRouter); // Knowledge routes under /calls/:id/knowledge
+  app.use('/', knowledgeRouter); // Product and organization profile routes
+  app.use('/reference-intelligence', referenceIntelligenceRouter); // Stats and health
 
   // Error handlers (must be last)
   app.use(notFoundHandler);

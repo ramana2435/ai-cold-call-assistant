@@ -75,6 +75,9 @@ export async function suggestResponse(callId: string, prospectLastWords?: string
   return handleResponse<SuggestedResponseEnhanced>(response);
 }
 
+// Alias for consistency with backend naming
+export const suggestResponseWithReferences = suggestResponse;
+
 export async function getIntelligence(callId: string): Promise<CallIntelligence> {
   const response = await fetch(`${API_BASE}/calls/${callId}/intelligence`);
   return handleResponse<CallIntelligence>(response);

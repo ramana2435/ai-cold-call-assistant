@@ -1,6 +1,7 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createCall } from '../services/api';
+import { createCall, getProductProfiles, getOrganizationProfiles, associateKnowledge } from '../services/api';
+import { ProductProfile, OrganizationProfile } from '../types';
 
 export default function CallForm() {
   const navigate = useNavigate();
@@ -10,6 +11,32 @@ export default function CallForm() {
   const [callContext, setCallContext] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  
+  // Profile selection state
+  const [productProfiles, setProductProfiles] = useState<ProductProfile[]>([]);
+  const [organizationProfiles, setOrganizationProfiles] = useState<OrganizationProfile[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+  const [loadingProfiles, setLoadingProfiles] = useState(true);
+
+  useEffect(() => {
+    loadProfiles();
+  }, []);
+
+  const loadProfiles = async () => {
+    try {
+      const [products, orgs] = await Promise.all([
+        getProductProfiles(),
+        getOrganizationProfiles()
+      ]);
+      setProductProfiles(products.filter(p => p.is_active));
+      setOrganizationProfiles(orgs.filter(o => o.is_active));
+    } catch (err) {
+      console.error('Failed to load profiles:', err);
+    } finally {
+      setLoadingProfiles(false);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -29,6 +56,17 @@ export default function CallForm() {
         prospect_role: prospectRole.trim() || undefined,
         call_context: callContext.trim() || undefined
       });
+
+      // Associate knowledge profiles if selected
+      if (selectedProductId || selectedOrgId) {
+        try {
+          await associateKnowledge(call.id, selectedProductId || undefined, selectedOrgId || undefined);
+        } catch (err) {
+          console.error('Failed to associate knowledge profiles:', err);
+          // Don't block navigation on profile association failure
+        }
+      }
+
       navigate(`/calls/${call.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create call');
@@ -110,6 +148,81 @@ export default function CallForm() {
             <p className="text-sm text-gray-500 mt-1">
               {callContext.length}/100 characters
             </p>
+          </div>
+
+          {/* Knowledge Profiles Section */}
+          <div className="border-t pt-5">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Knowledge Profiles (Optional)</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Select product and organization profiles to provide AI context during the call
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="productProfile" className="block text-sm font-medium text-gray-700 mb-2">
+                  Product Profile
+                </label>
+                <select
+                  id="productProfile"
+                  value={selectedProductId}
+                  onChange={(e) => setSelectedProductId(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={loadingProfiles}
+                >
+                  <option value="">-- No product selected --</option>
+                  {productProfiles.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.product_name}
+                    </option>
+                  ))}
+                </select>
+                {productProfiles.length === 0 && !loadingProfiles && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    No product profiles available.{' '}
+                    <button
+                      type="button"
+                      onClick={() => window.open('/products/new', '_blank')}
+                      className="text-indigo-600 hover:text-indigo-700 underline"
+                    >
+                      Create one
+                    </button>
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="orgProfile" className="block text-sm font-medium text-gray-700 mb-2">
+                  Organization Profile
+                </label>
+                <select
+                  id="orgProfile"
+                  value={selectedOrgId}
+                  onChange={(e) => setSelectedOrgId(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={loadingProfiles}
+                >
+                  <option value="">-- No organization selected --</option>
+                  {organizationProfiles.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.organization_name}
+                      {org.industry && ` (${org.industry})`}
+                    </option>
+                  ))}
+                </select>
+                {organizationProfiles.length === 0 && !loadingProfiles && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    No organization profiles available.{' '}
+                    <button
+                      type="button"
+                      onClick={() => window.open('/organizations/new', '_blank')}
+                      className="text-indigo-600 hover:text-indigo-700 underline"
+                    >
+                      Create one
+                    </button>
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
 
           {error && (

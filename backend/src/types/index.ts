@@ -184,3 +184,181 @@ export interface SuggestStageRequest {
 export interface SuggestResponseRequest {
   prospectLastWords: string;
 }
+
+
+// =====================================================
+// Product & Organization Knowledge Types
+// =====================================================
+
+// Product feature structure
+export interface ProductFeature {
+  name: string;
+  description: string;
+}
+
+// Common objection with approved response
+export interface ObjectionResponse {
+  objection: string;
+  response: string;
+}
+
+// Image or diagram reference
+export interface ImageReference {
+  type: string; // 'screenshot', 'diagram', 'logo', etc.
+  url: string;
+  description?: string;
+}
+
+// Product profile record
+export interface ProductProfile {
+  id: string;
+  product_name: string;
+  short_description?: string;
+  detailed_explanation?: string;
+  problems_solved: string[];
+  features: ProductFeature[];
+  benefits: string[];
+  use_cases: string[];
+  pricing_model?: string;
+  technical_requirements?: string;
+  product_limitations?: string;
+  common_objections: ObjectionResponse[];
+  ideal_customer_profile?: string;
+  supported_industries: string[];
+  unsupported_industries: string[];
+  image_references: ImageReference[];
+  preferred_cta?: string;
+  preferred_next_steps?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Organization profile record
+export interface OrganizationProfile {
+  id: string;
+  organization_name: string;
+  website?: string;
+  industry?: string;
+  organization_type?: string;
+  company_size?: string;
+  prospect_name?: string;
+  prospect_role?: string;
+  is_decision_maker?: boolean;
+  business_challenges?: string;
+  potential_use_cases?: string;
+  organization_notes?: string;
+  information_source?: string;
+  confidence_level?: 'high' | 'medium' | 'low' | 'unverified';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  last_contacted_at?: string;
+}
+
+// Call knowledge snapshot
+export interface CallKnowledgeSnapshot {
+  id: string;
+  call_id: string;
+  product_profile_id?: string;
+  organization_profile_id?: string;
+  product_snapshot?: ProductProfile;
+  organization_snapshot?: OrganizationProfile;
+  snapshot_created_at: string;
+}
+
+// Request body for creating product profile
+export interface CreateProductProfileRequest {
+  product_name: string;
+  short_description?: string;
+  detailed_explanation?: string;
+  problems_solved?: string[];
+  features?: ProductFeature[];
+  benefits?: string[];
+  use_cases?: string[];
+  pricing_model?: string;
+  technical_requirements?: string;
+  product_limitations?: string;
+  common_objections?: ObjectionResponse[];
+  ideal_customer_profile?: string;
+  supported_industries?: string[];
+  unsupported_industries?: string[];
+  image_references?: ImageReference[];
+  preferred_cta?: string;
+  preferred_next_steps?: string;
+}
+
+// Request body for updating product profile
+export type UpdateProductProfileRequest = Partial<CreateProductProfileRequest> & {
+  is_active?: boolean;
+};
+
+// Request body for creating organization profile
+export interface CreateOrganizationProfileRequest {
+  organization_name: string;
+  website?: string;
+  industry?: string;
+  organization_type?: string;
+  company_size?: string;
+  prospect_name?: string;
+  prospect_role?: string;
+  is_decision_maker?: boolean;
+  business_challenges?: string;
+  potential_use_cases?: string;
+  organization_notes?: string;
+  information_source?: string;
+  confidence_level?: 'high' | 'medium' | 'low' | 'unverified';
+}
+
+// Request body for updating organization profile
+export type UpdateOrganizationProfileRequest = Partial<CreateOrganizationProfileRequest> & {
+  is_active?: boolean;
+};
+
+// Request body for associating knowledge with a call
+export interface AssociateKnowledgeRequest {
+  product_profile_id?: string;
+  organization_profile_id?: string;
+}
+
+// =====================================================
+// Speech-to-Text Types
+// =====================================================
+
+// Transcript segment from speech recognition
+export interface TranscriptSegment {
+  id: string;
+  call_id: string;
+  text: string;
+  speaker?: string | null; // 'salesperson', 'prospect', or null (unknown)
+  assemblyai_speaker_label?: string | null; // Raw label from AssemblyAI (e.g., "A", "B")
+  speaker_confidence?: number | null; // Confidence score (0-1)
+  speaker_algorithm?: string | null; // Algorithm used ('turn-order', 'assemblyai', 'combined')
+  confidence?: number; // Transcription confidence
+  start_time?: number; // seconds from call start
+  end_time?: number; // seconds from call start
+  is_final: boolean; // true when finalized, false for partial
+  language?: string; // e.g., 'en', 'te'
+  created_at: string;
+}
+
+// WebSocket streaming session info
+export interface StreamingSession {
+  session_id: string;
+  call_id: string;
+  status: 'active' | 'completed' | 'error';
+  started_at: string;
+  ended_at?: string;
+}
+
+// Request to start streaming session
+export interface StartStreamingRequest {
+  call_id: string;
+  sample_rate?: number;
+}
+
+// Response with session details
+export interface StartStreamingResponse {
+  session_id: string;
+  expires_at: string;
+}

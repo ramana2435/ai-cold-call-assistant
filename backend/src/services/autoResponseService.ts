@@ -34,6 +34,12 @@ function getCallState(callId: string): CallAutoResponseState {
 
 /**
  * Determine if auto-response should be triggered for this utterance
+ * 
+ * ASSUMPTION: AssemblyAI turnOrder values are monotonically increasing within a call.
+ * If turnOrder ever decreases or resets, duplicates may trigger or valid turns may be skipped.
+ * The current duplicate detection uses `turnOrder <= lastProcessedTurnOrder` to reject
+ * already-processed or out-of-order utterances. If more robust duplicate detection is needed,
+ * consider tracking a Set of processed turn IDs instead.
  */
 export function shouldTriggerAutoResponse(
   callId: string,
@@ -48,7 +54,7 @@ export function shouldTriggerAutoResponse(
 
   const state = getCallState(callId);
 
-  // Don't process if already processed this turnOrder
+  // Don't process if already processed this turnOrder (assumes monotonic turnOrder)
   if (state.lastProcessedTurnOrder !== null && turnOrder <= state.lastProcessedTurnOrder) {
     return false;
   }

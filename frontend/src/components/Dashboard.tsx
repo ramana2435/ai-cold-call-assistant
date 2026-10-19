@@ -62,7 +62,23 @@ export default function Dashboard() {
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">My Calls</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">My Calls</h1>
+          <div className="mt-2 flex space-x-4">
+            <button
+              onClick={() => navigate('/products')}
+              className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+            >
+              Product Profiles
+            </button>
+            <button
+              onClick={() => navigate('/organizations')}
+              className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+            >
+              Organizations
+            </button>
+          </div>
+        </div>
         <button
           onClick={() => navigate('/calls/new')}
           className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"

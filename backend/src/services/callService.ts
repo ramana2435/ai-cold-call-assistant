@@ -136,7 +136,17 @@ export async function saveStageResult(
     throw new Error(`Invalid stage number: ${data.stage_number}`);
   }
 
-  // Insert stage result
+  // Upsert stage result (insert or update if already exists)
+  // First, check if a stage result already exists for this call and stage
+  const { data: existingStage } = await client
+    .from('call_stage_results')
+    .select('id')
+    .eq('call_id', callId)
+    .eq('stage_number', data.stage_number)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
   const stageData = {
     call_id: callId,
     stage_number: data.stage_number,
@@ -146,14 +156,33 @@ export async function saveStageResult(
     stage_notes: data.stage_notes || null,
   };
 
-  const { data: stageResult, error: stageError } = await client
-    .from('call_stage_results')
-    .insert(stageData)
-    .select()
-    .single();
-
-  if (stageError) {
-    throw new Error(`Failed to save stage result: ${stageError.message}`);
+  let stageResult;
+  
+  if (existingStage) {
+    // Update existing stage result
+    const { data: updated, error: updateError } = await client
+      .from('call_stage_results')
+      .update(stageData)
+      .eq('id', existingStage.id)
+      .select()
+      .single();
+    
+    if (updateError) {
+      throw new Error(`Failed to update stage result: ${updateError.message}`);
+    }
+    stageResult = updated;
+  } else {
+    // Insert new stage result
+    const { data: inserted, error: insertError } = await client
+      .from('call_stage_results')
+      .insert(stageData)
+      .select()
+      .single();
+    
+    if (insertError) {
+      throw new Error(`Failed to save stage result: ${insertError.message}`);
+    }
+    stageResult = inserted;
   }
 
   // Update call progress
