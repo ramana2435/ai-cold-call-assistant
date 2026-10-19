@@ -89,3 +89,135 @@ export interface CallIntelligence {
   recommendedActions: string[];
   confidenceScore: number;
 }
+
+// =====================================================
+// Product & Organization Knowledge Types
+// =====================================================
+
+export interface ProductFeature {
+  name: string;
+  description: string;
+}
+
+export interface ObjectionResponse {
+  objection: string;
+  response: string;
+}
+
+export interface ImageReference {
+  type: string;
+  url: string;
+  description?: string;
+}
+
+export interface ProductProfile {
+  id: string;
+  product_name: string;
+  short_description?: string;
+  detailed_explanation?: string;
+  problems_solved: string[];
+  features: ProductFeature[];
+  benefits: string[];
+  use_cases: string[];
+  pricing_model?: string;
+  technical_requirements?: string;
+  product_limitations?: string;
+  common_objections: ObjectionResponse[];
+  ideal_customer_profile?: string;
+  supported_industries: string[];
+  unsupported_industries: string[];
+  image_references: ImageReference[];
+  preferred_cta?: string;
+  preferred_next_steps?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrganizationProfile {
+  id: string;
+  organization_name: string;
+  website?: string;
+  industry?: string;
+  organization_type?: string;
+  company_size?: string;
+  prospect_name?: string;
+  prospect_role?: string;
+  is_decision_maker?: boolean;
+  business_challenges?: string;
+  potential_use_cases?: string;
+  organization_notes?: string;
+  information_source?: string;
+  confidence_level?: 'high' | 'medium' | 'low' | 'unverified';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  last_contacted_at?: string;
+}
+
+export interface CreateProductProfileInput {
+  product_name: string;
+  short_description?: string;
+  detailed_explanation?: string;
+  problems_solved?: string[];
+  features?: ProductFeature[];
+  benefits?: string[];
+  use_cases?: string[];
+  pricing_model?: string;
+  technical_requirements?: string;
+  product_limitations?: string;
+  common_objections?: ObjectionResponse[];
+  ideal_customer_profile?: string;
+  supported_industries?: string[];
+  unsupported_industries?: string[];
+  image_references?: ImageReference[];
+  preferred_cta?: string;
+  preferred_next_steps?: string;
+}
+
+export interface CreateOrganizationProfileInput {
+  organization_name: string;
+  website?: string;
+  industry?: string;
+  organization_type?: string;
+  company_size?: string;
+  prospect_name?: string;
+  prospect_role?: string;
+  is_decision_maker?: boolean;
+  business_challenges?: string;
+  potential_use_cases?: string;
+  organization_notes?: string;
+  information_source?: string;
+  confidence_level?: 'high' | 'medium' | 'low' | 'unverified';
+}
+
+// =====================================================
+// Reference Intelligence Types
+// =====================================================
+
+export interface ReferenceExampleMetadata {
+  prospect_role: string;
+  company_kind: string;
+  duration_seconds: string;
+  turns: number;
+}
+
+export interface ReferenceExample {
+  id: string;
+  relevanceScore: number;
+  matchReason: string;
+  outcome: string;
+  excerpt: string;
+  metadata: ReferenceExampleMetadata;
+}
+
+export interface ReferenceIntelligenceResponse {
+  examples: ReferenceExample[];
+  guidance: string;
+  totalAvailable: number;
+}
+
+export interface ReferenceHealthResponse {
+  available: boolean;
+  message: string;
+}
