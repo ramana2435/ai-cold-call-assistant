@@ -214,6 +214,16 @@ export default function AIActionsPanel({ callId, currentStage, isReadOnly = fals
 
       {responseResult && (
         <div className="space-y-3">
+          {/* Limited Context Warning */}
+          {responseResult.contextSource === 'limited' && (
+            <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 flex items-start gap-2">
+              <span className="text-amber-600 text-lg leading-none">⚠️</span>
+              <p className="text-sm text-amber-800">
+                <strong>Limited context:</strong> No transcript available yet. Suggestions are generic. Start recording to get context-aware recommendations.
+              </p>
+            </div>
+          )}
+          
           {/* Primary Recommendation */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
             <div className="flex items-center justify-between">

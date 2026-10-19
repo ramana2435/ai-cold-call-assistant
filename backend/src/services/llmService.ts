@@ -67,6 +67,7 @@ export interface SuggestedResponseEnhanced {
   primary: SuggestedResponseItem;
   alternatives: SuggestedResponseItem[];
   referenceIntelligence: ReferenceIntelligence;
+  contextSource?: 'prospectWords' | 'transcript' | 'limited';
 }
 
 // Import CallIntelligence from shared types
@@ -578,7 +579,7 @@ Respond ONLY with valid JSON, no markdown formatting.
  */
 export async function suggestResponseWithReferences(
   callId: string,
-  prospectLastWords: string,
+  prospectLastWords: string | undefined,
   currentStage: StageName,
   recentTranscript: string,
   knowledgeContext?: { product?: any; organization?: any }
@@ -609,7 +610,12 @@ export async function suggestResponseWithReferences(
   }
 
   // Use provided prospectLastWords or fallback to recent transcript context
-  const contextToUse = prospectLastWords.trim() || recentTranscript || 'Recent conversation context';
+  const contextToUse = prospectLastWords?.trim() || recentTranscript.trim() || '';
+  
+  // Log warning when context is missing
+  if (!contextToUse) {
+    console.warn(`[Intelligence] No transcript context available for call ${callId}. Suggestions will be generic.`);
+  }
 
   const prompt = `
 ${stageContext}
@@ -621,8 +627,7 @@ Current stage: ${currentStage}
 Recent conversation history:
 ${historyText}
 
-The prospect just said:
-"${contextToUse}"
+${contextToUse ? `The prospect just said:\n"${contextToUse}"` : 'No transcript context available yet. Generate general opening suggestions for this stage.'}
 
 Generate ONE recommended response and TWO alternative responses, each with an explanation of why it fits the situation.
 ${referenceContext ? 'Learn from the reference examples but adapt to THIS specific conversation.' : ''}
@@ -671,6 +676,16 @@ Respond ONLY with valid JSON, no markdown.
       throw new Error('Alternatives must be an array with at most 2 items');
     }
     
+    // Determine context source for frontend indication
+    let contextSource: 'prospectWords' | 'transcript' | 'limited';
+    if (prospectLastWords?.trim()) {
+      contextSource = 'prospectWords';
+    } else if (recentTranscript.trim()) {
+      contextSource = 'transcript';
+    } else {
+      contextSource = 'limited';
+    }
+    
     return {
       primary: {
         text: parsed.primary.text,
@@ -681,6 +696,7 @@ Respond ONLY with valid JSON, no markdown.
         explanation: alt.explanation || '',
       })),
       referenceIntelligence: refIntel,
+      contextSource,
     };
   } catch (error) {
     console.error('[LLM] Failed to parse reference-enhanced response:', error);

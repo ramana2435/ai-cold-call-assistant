@@ -90,6 +90,7 @@ export interface SuggestedResponseEnhanced {
   primary: SuggestedResponseItem;
   alternatives: SuggestedResponseItem[];
   referenceIntelligence?: ReferenceIntelligenceResponse;
+  contextSource?: 'prospectWords' | 'transcript' | 'limited';
 }
 
 export interface CallIntelligence {
