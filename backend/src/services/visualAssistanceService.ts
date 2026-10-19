@@ -1,6 +1,7 @@
 // Visual Assistance Service - Context-Aware Visual Suggestions
 import { StageName } from '../types';
 import { callAIProvider, TaskType } from './aiProviderService';
+import config from '../config';
 
 // Type definitions
 export interface VisualSuggestion {
@@ -8,6 +9,8 @@ export interface VisualSuggestion {
   relevance: string;
   visualType: string;
   description: string;
+  imageUrl?: string; // URL to actual image (product image or Unsplash)
+  imageSource?: 'product' | 'unsplash' | 'none'; // Source of the image
 }
 
 export interface VisualContextAnalysisInput {
@@ -18,6 +21,28 @@ export interface VisualContextAnalysisInput {
     product?: any;
     organization?: any;
   };
+}
+
+// Unsplash API response types
+interface UnsplashPhoto {
+  id: string;
+  urls: {
+    regular: string;
+    small: string;
+    thumb: string;
+  };
+  user: {
+    name: string;
+    username: string;
+  };
+  links: {
+    html: string;
+  };
+}
+
+interface UnsplashSearchResponse {
+  results: UnsplashPhoto[];
+  total: number;
 }
 
 // In-memory tracking of suggested visuals to avoid duplicates
@@ -56,6 +81,128 @@ function recordSuggestion(callId: string, hash: string): void {
  */
 export function clearSuggestionHistory(callId: string): void {
   suggestionHistory.delete(callId);
+}
+
+/**
+ * Search Unsplash for relevant images based on keywords
+ * Returns null if Unsplash is not configured or search fails
+ */
+async function searchUnsplashImage(keywords: string): Promise<string | null> {
+  if (!config.unsplash.accessKey) {
+    console.log('[Visual Assistance] Unsplash not configured, skipping image search');
+    return null;
+  }
+
+  try {
+    const searchQuery = encodeURIComponent(keywords);
+    const unsplashUrl = `https://api.unsplash.com/search/photos?query=${searchQuery}&per_page=1&orientation=landscape`;
+
+    console.log(`[Visual Assistance] Searching Unsplash for: "${keywords}"`);
+
+    const response = await fetch(unsplashUrl, {
+      headers: {
+        'Authorization': `Client-ID ${config.unsplash.accessKey}`,
+        'Accept-Version': 'v1',
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`[Visual Assistance] Unsplash API error: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const data: UnsplashSearchResponse = await response.json() as UnsplashSearchResponse;
+
+    if (data.results && data.results.length > 0) {
+      const photo = data.results[0];
+      console.log(`[Visual Assistance] Found Unsplash image: ${photo.id} by ${photo.user.name}`);
+      // Use 'regular' size (max 1080px) for good quality
+      return photo.urls.regular;
+    }
+
+    console.log(`[Visual Assistance] No Unsplash images found for: "${keywords}"`);
+    return null;
+  } catch (error: any) {
+    console.error('[Visual Assistance] Error searching Unsplash:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Find matching product image from knowledge context
+ * Returns null if no matching image found
+ */
+function findProductImage(
+  visualType: string,
+  title: string,
+  knowledgeContext?: { product?: any }
+): string | null {
+  if (!knowledgeContext?.product?.image_references) {
+    return null;
+  }
+
+  const images = knowledgeContext.product.image_references;
+  const lowerVisualType = visualType.toLowerCase();
+  const lowerTitle = title.toLowerCase();
+
+  // Try to match by type first
+  for (const img of images) {
+    const imgType = (img.type || '').toLowerCase();
+    const imgDesc = (img.description || '').toLowerCase();
+
+    // Exact type match
+    if (lowerVisualType.includes(imgType) || imgType.includes(lowerVisualType)) {
+      console.log(`[Visual Assistance] Found product image by type match: ${img.type}`);
+      return img.url;
+    }
+
+    // Title keyword match in description
+    if (imgDesc.includes(lowerTitle) || lowerTitle.includes(imgDesc)) {
+      console.log(`[Visual Assistance] Found product image by description match: ${img.description}`);
+      return img.url;
+    }
+  }
+
+  // If no specific match, return first screenshot or diagram
+  for (const img of images) {
+    const imgType = (img.type || '').toLowerCase();
+    if (imgType === 'screenshot' || imgType === 'diagram' || imgType === 'dashboard') {
+      console.log(`[Visual Assistance] Using default product image: ${img.type}`);
+      return img.url;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Generate search keywords for Unsplash based on visual type and title
+ */
+function generateUnsplashKeywords(visualType: string, title: string): string {
+  const type = visualType.toLowerCase();
+  const titleWords = title.toLowerCase();
+
+  // Map visual types to better search keywords
+  const keywordMap: Record<string, string> = {
+    'dashboard': 'business dashboard analytics',
+    'screenshot': 'software interface application',
+    'diagram': 'business diagram illustration',
+    'workflow': 'workflow process diagram',
+    'chart': 'business chart data visualization',
+    'comparison': 'comparison table business',
+    'illustration': 'business illustration',
+    'feature': 'software feature interface',
+  };
+
+  // Find best matching keyword base
+  for (const [key, value] of Object.entries(keywordMap)) {
+    if (type.includes(key)) {
+      return value;
+    }
+  }
+
+  // Fallback: use title words + "business"
+  return `${titleWords} business software`;
 }
 
 /**
@@ -183,18 +330,50 @@ Respond ONLY with valid JSON, no markdown formatting.
       throw new Error('Invalid response format: missing suggestions array');
     }
     
-    // Filter out duplicate suggestions
+    // Filter out duplicate suggestions and add images
     const uniqueSuggestions: VisualSuggestion[] = [];
     
     for (const suggestion of parsed.suggestions) {
       const hash = generateSuggestionHash(suggestion.title, suggestion.visualType);
       
       if (!isDuplicateSuggestion(callId, hash)) {
+        // Hybrid image logic: try product images first, then Unsplash
+        let imageUrl: string | null = null;
+        let imageSource: 'product' | 'unsplash' | 'none' = 'none';
+
+        // Step 1: Try to find matching product image
+        imageUrl = findProductImage(
+          suggestion.visualType,
+          suggestion.title,
+          knowledgeContext
+        );
+
+        if (imageUrl) {
+          imageSource = 'product';
+          console.log(`[Visual Assistance] Using product image for: ${suggestion.title}`);
+        } else {
+          // Step 2: Fall back to Unsplash search
+          const keywords = generateUnsplashKeywords(
+            suggestion.visualType,
+            suggestion.title
+          );
+          imageUrl = await searchUnsplashImage(keywords);
+
+          if (imageUrl) {
+            imageSource = 'unsplash';
+            console.log(`[Visual Assistance] Using Unsplash image for: ${suggestion.title}`);
+          } else {
+            console.log(`[Visual Assistance] No image found for: ${suggestion.title}`);
+          }
+        }
+
         uniqueSuggestions.push({
           title: suggestion.title || 'Untitled Visual',
           relevance: suggestion.relevance || 'Relevant to current conversation',
           visualType: suggestion.visualType || 'illustration',
           description: suggestion.description || 'Visual description not available',
+          imageUrl: imageUrl || undefined,
+          imageSource,
         });
         recordSuggestion(callId, hash);
       }

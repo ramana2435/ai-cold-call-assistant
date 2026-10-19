@@ -228,7 +228,7 @@ async function callGroq(prompt: string): Promise<string> {
     const groq = new Groq({ apiKey: config.groq.apiKey });
     
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'openai/gpt-oss-120b', // Updated: llama3-70b-8192 was decommissioned
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
     });

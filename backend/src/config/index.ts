@@ -27,6 +27,9 @@ interface Config {
   assemblyai: {
     apiKey: string;
   };
+  unsplash: {
+    accessKey: string;
+  };
 }
 
 const config: Config = {
@@ -53,6 +56,9 @@ const config: Config = {
   assemblyai: {
     apiKey: process.env.ASSEMBLYAI_API_KEY || '',
   },
+  unsplash: {
+    accessKey: process.env.UNSPLASH_ACCESS_KEY || '',
+  },
 };
 
 // Validate required environment variables
@@ -74,6 +80,11 @@ export function validateConfig(): { valid: boolean; errors: string[] } {
   // Warn if Groq is not configured (but don't fail validation)
   if (!config.groq.apiKey && config.nodeEnv === 'development') {
     console.warn('[Config] Warning: GROQ_API_KEY not configured. Dual-provider support disabled.');
+  }
+
+  // Warn if Unsplash is not configured (but don't fail validation)
+  if (!config.unsplash.accessKey && config.nodeEnv === 'development') {
+    console.warn('[Config] Warning: UNSPLASH_ACCESS_KEY not configured. Stock image fallback disabled.');
   }
 
   return {

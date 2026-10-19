@@ -243,4 +243,6 @@ export interface VisualSuggestion {
   relevance: string;
   visualType: string;
   description: string;
+  imageUrl?: string; // URL to actual image (product image or Unsplash)
+  imageSource?: 'product' | 'unsplash' | 'none'; // Source of the image
 }

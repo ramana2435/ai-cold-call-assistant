@@ -69,7 +69,7 @@ describe('aiProviderService', () => {
 
       expect(result).toBe('Groq response text');
       expect(mockGroqCreate).toHaveBeenCalledWith({
-        model: 'llama-3.3-70b-versatile',
+        model: 'openai/gpt-oss-120b',
         messages: [{ role: 'user', content: 'Test prompt' }],
         temperature: 0.7,
       });
