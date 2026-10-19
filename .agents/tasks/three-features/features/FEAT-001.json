@@ -1,0 +1,44 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Implement Context-Aware Visual Sales Assistance panel that analyzes the current conversation context (product, business type, stage, objections) and suggests relevant visual aids with text-based descriptions. No actual image generation - provides AI-generated illustration descriptions when no image source is configured, keeping API keys backend-only.",
+  "status": "completed",
+  "steps": [
+    "1. Create backend/src/services/visualAssistanceService.ts with analyzeVisualContext() function that takes callId, currentStage, recentTranscript, knowledgeContext and returns {suggestions: Array<{title, relevance, visualType, description}>}. Use Gemini API (via existing callGemini helper pattern from llmService.ts) to generate context-aware visual suggestions. Include product screenshots, dashboard illustrations, workflow diagrams based on actual conversation. Avoid duplicates by tracking previously suggested visuals in memory Map<callId, Set<suggestion-hash>>.",
+    
+    "2. Add POST /api/calls/:id/visual-suggestions route in backend/src/routes/llm.ts (or new visualAssistance.ts route file). Fetch call with getCallById, get knowledge snapshot with getCallKnowledgeSnapshot, get recent transcript with getFullTranscript, call analyzeVisualContext from visualAssistanceService, return {success: true, data: {suggestions}}. Add route to backend/src/server.ts if creating new route file.",
+    
+    "3. Create frontend/src/components/VisualAssistancePanel.tsx component with: title 'Visual Sales Assistance', loading state (spinner), empty state ('No visual suggestions yet'), error state with retry button, suggestions list showing title, relevance explanation, visual description (since no real images), visual type badge. Fetch suggestions from POST /api/calls/:id/visual-suggestions on mount and when conversation changes (expose refresh callback). Style with Tailwind following existing panel patterns (bg-white rounded-lg shadow p-6).",
+    
+    "4. Add getVisualSuggestions(callId: string) function to frontend/src/services/api.ts following existing patterns. Add VisualSuggestion type to frontend/src/types/index.ts: {title: string, relevance: string, visualType: string, description: string}.",
+    
+    "5. Integrate VisualAssistancePanel into frontend/src/components/CallWorkspace.tsx in the right sidebar, below AIActionsPanel and above AudioPanel. Pass callId prop. Component auto-fetches on mount. Do not show on closed calls (check isCompleted flag).",
+    
+    "6. Add visualAssistanceService.test.ts in backend/src/__tests__/ following llmService.test.ts pattern. Mock callGemini. Test: successful visual suggestion generation, context-aware suggestions (different products/stages yield different visuals), duplicate prevention, empty conversation handling, API errors. Use mock API keys, never real ones."
+  ],
+  "acceptance_criteria": [
+    "POST /api/calls/:id/visual-suggestions returns array of suggestions with title, relevance, visualType, description fields",
+    "Visual suggestions are contextually relevant: College ERP + fee management mentions fee dashboard, Hospital + billing mentions billing workflow",
+    "Duplicate visuals are not repeatedly suggested for same conversation context",
+    "VisualAssistancePanel renders in CallWorkspace right sidebar on active calls only",
+    "Panel shows loading state during fetch, empty state when no suggestions, error state with retry on failure",
+    "Each suggestion displays title, relevance explanation, visual type, and text description",
+    "No real API keys exposed in frontend code or test files",
+    "Backend keeps API keys server-side; frontend only receives text descriptions",
+    "Tests cover success, context-awareness, duplicate prevention, error handling",
+    "npm test in backend passes with new visual assistance tests"
+  ],
+  "verification": [
+    "cd backend && npm test -- visualAssistanceService.test.ts",
+    "cd backend && npm run dev (start backend on port 3000)",
+    "cd frontend && npm run dev (start frontend on port 5173)",
+    "Open browser to http://localhost:5173, create a call with a product profile (e.g., College ERP) and organization",
+    "Navigate to call workspace, verify VisualAssistancePanel appears in right sidebar below AI Actions",
+    "Check that suggestions are context-specific and mention relevant features from the product profile",
+    "Verify no duplicate suggestions appear when refreshing",
+    "Check browser console for errors (should be none)",
+    "Verify backend logs show Gemini API calls for visual context analysis"
+  ],
+  "blocked_reason": null,
+  "findings": "Successfully implemented context-aware visual sales assistance feature. All components created and tested:\n- Backend service (visualAssistanceService.ts) with Gemini API integration\n- POST /api/calls/:id/visual-suggestions route\n- Frontend VisualAssistancePanel component with loading/error/empty states\n- Integrated into CallWorkspace right sidebar (active calls only)\n- Comprehensive test suite with 10 passing tests covering success, context-awareness, duplicate prevention, and error handling\n- Both backend and frontend build successfully\n- No API keys exposed in frontend or tests\n- Duplicate prevention working via in-memory hash tracking"
+}
