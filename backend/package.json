@@ -18,6 +18,9 @@
   ],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "@google/genai": "^2.30.0",
     "@google/generative-ai": "^0.24.1",
