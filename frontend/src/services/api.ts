@@ -66,11 +66,11 @@ export async function suggestStage(callId: string, conversationSummary?: string)
   return handleResponse<StageRecommendation>(response);
 }
 
-export async function suggestResponse(callId: string, prospectLastWords: string): Promise<SuggestedResponseEnhanced> {
+export async function suggestResponse(callId: string, prospectLastWords?: string): Promise<SuggestedResponseEnhanced> {
   const response = await fetch(`${API_BASE}/calls/${callId}/suggest-response-with-references`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prospectLastWords })
+    body: JSON.stringify(prospectLastWords ? { prospectLastWords } : {})
   });
   return handleResponse<SuggestedResponseEnhanced>(response);
 }

@@ -168,9 +168,8 @@ export const suggestResponseValidators: ValidationChain[] = [
     .withMessage('Invalid call ID format'),
   
   body('prospectLastWords')
+    .optional()
     .trim()
-    .notEmpty()
-    .withMessage('Prospect last words is required')
     .isString()
     .withMessage('Prospect last words must be a string')
     .isLength({ max: 500 })

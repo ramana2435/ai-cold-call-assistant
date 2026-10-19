@@ -608,6 +608,9 @@ export async function suggestResponseWithReferences(
     referenceContext += 'USE THESE AS INSPIRATION FOR TONE AND APPROACH, NOT AS SCRIPTS TO COPY.\n';
   }
 
+  // Use provided prospectLastWords or fallback to recent transcript context
+  const contextToUse = prospectLastWords.trim() || recentTranscript || 'Recent conversation context';
+
   const prompt = `
 ${stageContext}
 ${productOrgContext}
@@ -619,7 +622,7 @@ Recent conversation history:
 ${historyText}
 
 The prospect just said:
-"${prospectLastWords}"
+"${contextToUse}"
 
 Generate ONE recommended response and TWO alternative responses, each with an explanation of why it fits the situation.
 ${referenceContext ? 'Learn from the reference examples but adapt to THIS specific conversation.' : ''}
@@ -652,7 +655,7 @@ Respond with a JSON object in this exact format:
 Respond ONLY with valid JSON, no markdown.
 `;
 
-  addToConversationContext(callId, 'user', prospectLastWords);
+  addToConversationContext(callId, 'user', contextToUse);
   
   const response = await callGemini(prompt);
   addToConversationContext(callId, 'model', response);

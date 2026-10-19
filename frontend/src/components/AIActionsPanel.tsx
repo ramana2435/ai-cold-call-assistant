@@ -16,14 +16,30 @@ export default function AIActionsPanel({ callId, currentStage, isReadOnly = fals
   const [responseResult, setResponseResult] = useState<SuggestedResponseEnhanced | null>(null);
   const [intelligence, setIntelligence] = useState<CallIntelligence | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Modal states
+  const [showAnalyzeModal, setShowAnalyzeModal] = useState(false);
+  const [analyzeInput, setAnalyzeInput] = useState('');
+  const [showStageModal, setShowStageModal] = useState(false);
+  const [stageInput, setStageInput] = useState('');
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = () => {
+    setShowAnalyzeModal(true);
+    setAnalyzeInput('');
+  };
+
+  const handleAnalyzeSubmit = async () => {
+    if (!analyzeInput.trim()) {
+      setError('Please enter a transcript to analyze');
+      return;
+    }
+    
     setLoading('analyze');
     setError(null);
+    setShowAnalyzeModal(false);
+    
     try {
-      const transcript = prompt('Enter transcript to analyze:');
-      if (!transcript) return;
-      const result = await analyzeCall(callId, transcript, currentStage);
+      const result = await analyzeCall(callId, analyzeInput.trim(), currentStage);
       setAnalysis(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
@@ -32,11 +48,18 @@ export default function AIActionsPanel({ callId, currentStage, isReadOnly = fals
     }
   };
 
-  const handleSuggestStage = async () => {
+  const handleSuggestStage = () => {
+    setShowStageModal(true);
+    setStageInput('');
+  };
+
+  const handleSuggestStageSubmit = async () => {
     setLoading('suggest-stage');
     setError(null);
+    setShowStageModal(false);
+    
     try {
-      const summary = prompt('Enter conversation summary (optional):') || undefined;
+      const summary = stageInput.trim() || undefined;
       const result = await suggestStage(callId, summary);
       setRecommendation(result);
     } catch (err) {
@@ -50,9 +73,8 @@ export default function AIActionsPanel({ callId, currentStage, isReadOnly = fals
     setLoading('suggest-response');
     setError(null);
     try {
-      const lastWords = prompt('Enter prospect\'s last words:');
-      if (!lastWords) return;
-      const result = await suggestResponse(callId, lastWords);
+      // Call backend without prospectLastWords - backend will use saved transcript
+      const result = await suggestResponse(callId);
       setResponseResult(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Response suggestion failed');
@@ -263,6 +285,76 @@ export default function AIActionsPanel({ callId, currentStage, isReadOnly = fals
       )}
 
       <ReferenceExamplesPanel callId={callId} currentStage={currentStage} isReadOnly={isReadOnly} />
+
+      {/* Analyze Transcript Modal */}
+      {showAnalyzeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Analyze Transcript</h3>
+            <textarea
+              value={analyzeInput}
+              onChange={(e) => setAnalyzeInput(e.target.value)}
+              placeholder="Enter the transcript text you want to analyze..."
+              className="w-full border border-gray-300 rounded-lg p-3 min-h-[120px] focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              autoFocus
+            />
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={handleAnalyzeSubmit}
+                disabled={!analyzeInput.trim()}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                Analyze
+              </button>
+              <button
+                onClick={() => {
+                  setShowAnalyzeModal(false);
+                  setAnalyzeInput('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suggest Stage Modal */}
+      {showStageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Suggest Next Stage</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              Optionally provide a conversation summary to improve stage recommendation accuracy.
+            </p>
+            <textarea
+              value={stageInput}
+              onChange={(e) => setStageInput(e.target.value)}
+              placeholder="Optional: Enter a brief summary of the conversation so far..."
+              className="w-full border border-gray-300 rounded-lg p-3 min-h-[100px] focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              autoFocus
+            />
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={handleSuggestStageSubmit}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              >
+                Get Suggestion
+              </button>
+              <button
+                onClick={() => {
+                  setShowStageModal(false);
+                  setStageInput('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

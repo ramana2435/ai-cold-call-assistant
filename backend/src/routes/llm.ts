@@ -4,6 +4,7 @@ import {
   analyzeTranscript,
   suggestNextStage,
   suggestResponse,
+  suggestResponseWithReferences,
   getCallIntelligence,
 } from '../services/llmService';
 import { getCallById } from '../services/callService';
@@ -14,6 +15,7 @@ import {
   getIntelligenceValidators,
 } from '../validators';
 import { validateRequest } from '../middleware/validateRequest';
+import { getFullTranscript } from '../services/speechService';
 
 const router = Router();
 
@@ -43,10 +45,19 @@ router.post(
       // Get current stage from request or use call's current stage
       const currentStage = req.body.currentStage || call.current_stage_number;
       
+      // Fetch knowledge context for this call
+      const { getCallKnowledgeSnapshot } = require('../services/knowledgeService');
+      const snapshot = await getCallKnowledgeSnapshot(callId);
+      const knowledgeContext = snapshot ? {
+        product: snapshot.product_snapshot,
+        organization: snapshot.organization_snapshot,
+      } : undefined;
+      
       const analysisResult = await analyzeTranscript(
         callId,
         req.body.transcript,
-        currentStage
+        currentStage,
+        knowledgeContext
       );
 
       const response: ApiResponse = {
@@ -129,16 +140,80 @@ router.post(
         return;
       }
 
+      // Fetch knowledge context for this call
+      const { getCallKnowledgeSnapshot } = require('../services/knowledgeService');
+      const snapshot = await getCallKnowledgeSnapshot(callId);
+      const knowledgeContext = snapshot ? {
+        product: snapshot.product_snapshot,
+        organization: snapshot.organization_snapshot,
+      } : undefined;
+
       const suggestedResponse = await suggestResponse(
         callId,
         req.body.prospectLastWords,
-        call.current_stage_name
+        call.current_stage_name,
+        knowledgeContext
       );
 
       const response: ApiResponse = {
         success: true,
         data: suggestedResponse,
         message: 'Response suggestions generated successfully',
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /calls/:id/suggest-response-with-references
+ * Suggest responses enhanced with relevant reference examples
+ */
+router.post(
+  '/:id/suggest-response-with-references',
+  suggestResponseValidators,
+  validateRequest,
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const callId = req.params.id;
+      
+      // Check if call exists
+      const call = await getCallById(callId);
+      if (!call) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Call not found',
+        };
+        res.status(404).json(response);
+        return;
+      }
+
+      // Fetch knowledge context for this call
+      const { getCallKnowledgeSnapshot } = require('../services/knowledgeService');
+      const snapshot = await getCallKnowledgeSnapshot(callId);
+      const knowledgeContext = snapshot ? {
+        product: snapshot.product_snapshot,
+        organization: snapshot.organization_snapshot,
+      } : undefined;
+
+      // Get recent transcript for context matching
+      const recentTranscript = await getFullTranscript(callId);
+
+      const result = await suggestResponseWithReferences(
+        callId,
+        req.body.prospectLastWords || '',
+        call.current_stage_name,
+        recentTranscript,
+        knowledgeContext
+      );
+
+      const response: ApiResponse = {
+        success: true,
+        data: result,
+        message: 'Reference-enhanced response suggestions generated successfully',
       };
 
       res.status(200).json(response);
