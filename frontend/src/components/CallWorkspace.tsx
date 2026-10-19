@@ -8,6 +8,7 @@ import StageContent from './StageContent';
 import AIActionsPanel from './AIActionsPanel';
 import AudioPanel from './AudioPanel';
 import CloseCallModal from './CloseCallModal';
+import VisualAssistancePanel from './VisualAssistancePanel';
 
 export default function CallWorkspace() {
   const { id } = useParams<{ id: string }>();
@@ -359,7 +360,10 @@ export default function CallWorkspace() {
               isReadOnly={isCompleted}
             />
             {!isCompleted && (
-              <AudioPanel callId={call.id} />
+              <>
+                <VisualAssistancePanel callId={call.id} />
+                <AudioPanel callId={call.id} />
+              </>
             )}
           </div>
         </div>

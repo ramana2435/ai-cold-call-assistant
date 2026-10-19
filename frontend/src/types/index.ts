@@ -233,3 +233,14 @@ export interface ReferenceHealthResponse {
   available: boolean;
   message: string;
 }
+
+// =====================================================
+// Visual Assistance Types
+// =====================================================
+
+export interface VisualSuggestion {
+  title: string;
+  relevance: string;
+  visualType: string;
+  description: string;
+}

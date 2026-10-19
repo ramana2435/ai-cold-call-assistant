@@ -239,3 +239,15 @@ export async function getReferenceStats(): Promise<unknown> {
   const response = await fetch(`${API_BASE}/reference-intelligence/stats`);
   return handleResponse<unknown>(response);
 }
+
+// =====================================================
+// Visual Assistance API
+// =====================================================
+
+export async function getVisualSuggestions(callId: string): Promise<{ suggestions: import('../types').VisualSuggestion[] }> {
+  const response = await fetch(`${API_BASE}/calls/${callId}/visual-suggestions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return handleResponse<{ suggestions: import('../types').VisualSuggestion[] }>(response);
+}

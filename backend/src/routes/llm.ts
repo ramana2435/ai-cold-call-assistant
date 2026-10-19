@@ -7,6 +7,7 @@ import {
   suggestResponseWithReferences,
   getCallIntelligence,
 } from '../services/llmService';
+import { analyzeVisualContext } from '../services/visualAssistanceService';
 import { getCallById } from '../services/callService';
 import {
   analyzeTranscriptValidators,
@@ -252,6 +253,60 @@ router.get(
         success: true,
         data: intelligence,
         message: 'Call intelligence retrieved successfully',
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /calls/:id/visual-suggestions
+ * Get context-aware visual suggestions for the current conversation
+ */
+router.post(
+  '/:id/visual-suggestions',
+  validateRequest,
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const callId = req.params.id;
+      
+      // Check if call exists
+      const call = await getCallById(callId);
+      if (!call) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Call not found',
+        };
+        res.status(404).json(response);
+        return;
+      }
+
+      // Fetch knowledge context for this call
+      const { getCallKnowledgeSnapshot } = require('../services/knowledgeService');
+      const snapshot = await getCallKnowledgeSnapshot(callId);
+      const knowledgeContext = snapshot ? {
+        product: snapshot.product_snapshot,
+        organization: snapshot.organization_snapshot,
+      } : undefined;
+
+      // Get recent transcript for context
+      const recentTranscript = await getFullTranscript(callId);
+
+      // Generate visual suggestions
+      const result = await analyzeVisualContext({
+        callId,
+        currentStage: call.current_stage_name,
+        recentTranscript,
+        knowledgeContext,
+      });
+
+      const response: ApiResponse = {
+        success: true,
+        data: result,
+        message: 'Visual suggestions generated successfully',
       };
 
       res.status(200).json(response);
