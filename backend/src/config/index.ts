@@ -17,6 +17,16 @@ interface Config {
     apiKey: string;
     model: string;
   };
+  groq: {
+    apiKey: string;
+  };
+  ai: {
+    provider: 'auto' | 'gemini' | 'groq';
+    fallbackEnabled: boolean;
+  };
+  assemblyai: {
+    apiKey: string;
+  };
 }
 
 const config: Config = {
@@ -31,7 +41,17 @@ const config: Config = {
   },
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || '',
-    model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+    model: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+  },
+  groq: {
+    apiKey: process.env.GROQ_API_KEY || '',
+  },
+  ai: {
+    provider: (process.env.AI_PROVIDER as 'auto' | 'gemini' | 'groq') || 'auto',
+    fallbackEnabled: process.env.AI_FALLBACK_ENABLED !== 'false',
+  },
+  assemblyai: {
+    apiKey: process.env.ASSEMBLYAI_API_KEY || '',
   },
 };
 
@@ -49,6 +69,11 @@ export function validateConfig(): { valid: boolean; errors: string[] } {
 
   if (!config.gemini.apiKey) {
     errors.push('GEMINI_API_KEY is required');
+  }
+
+  // Warn if Groq is not configured (but don't fail validation)
+  if (!config.groq.apiKey && config.nodeEnv === 'development') {
+    console.warn('[Config] Warning: GROQ_API_KEY not configured. Dual-provider support disabled.');
   }
 
   return {

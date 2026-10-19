@@ -1,31 +1,11 @@
-// Using native fetch() for Gemini API calls instead of SDK
-// This avoids compatibility issues with @google/generative-ai in Windows/Node environments
-import config from '../config';
+// LLM Service - Unified AI Provider Integration
 import { STAGE_NAMES, StageNumber, StageName } from '../types';
 import { getRelevantExamples, ReferenceIntelligence } from './referenceIntelligenceService';
+import { callAIProvider, TaskType } from './aiProviderService';
 
 // =====================================================
-// LLM Service - Gemini Integration
+// LLM Service - Multi-Provider AI Integration
 // =====================================================
-
-// Type for Gemini API response
-interface GeminiResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        text?: string;
-      }>;
-    };
-  }>;
-}
-
-interface GeminiErrorResponse {
-  error?: {
-    message?: string;
-    code?: number;
-    status?: string;
-  };
-}
 
 // In-memory conversation context storage
 interface ConversationMessage {
@@ -213,120 +193,7 @@ The 8 official cold-call stages are:
 `.trim();
 }
 
-async function callGemini(prompt: string): Promise<string> {
-  try {
-    // Use Node's https module with proper certificate handling
-    // This avoids certificate verification issues in Windows environments
-    const https = await import('https');
-    const { URL } = await import('url');
-    
-    const apiUrl = new URL(`https://generativelanguage.googleapis.com/v1beta/models/${config.gemini.model}:generateContent?key=${config.gemini.apiKey}`);
-    
-    const requestBody = JSON.stringify({
-      contents: [{
-        parts: [{ text: prompt }]
-      }]
-    });
-    
-    return new Promise((resolve, reject) => {
-      const options = {
-        hostname: apiUrl.hostname,
-        port: 443,
-        path: apiUrl.pathname + apiUrl.search,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(requestBody)
-        },
-        timeout: 30000,
-      };
-      
-      const req = https.request(options, (res) => {
-        let data = '';
-        
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data) as GeminiResponse | GeminiErrorResponse;
-            
-            // Check for API errors
-            if ('error' in parsed && parsed.error) {
-              const errorStatus = parsed.error.code || res.statusCode;
-              const errorMessage = parsed.error.message || 'Unknown error';
-              
-              if (errorStatus === 401) {
-                reject(new Error('Authentication failed. Verify GEMINI_API_KEY in backend .env is correct and not expired.'));
-                return;
-              }
-              if (errorStatus === 404) {
-                reject(new Error(`Model "${config.gemini.model}" not available. Current supported model: gemini-3.5-flash (Gemini 1.5/2.0 models deprecated).`));
-                return;
-              }
-              if (errorStatus === 403) {
-                reject(new Error('Permission denied. Your API key may lack access to this model. Check API restrictions in AI Studio.'));
-                return;
-              }
-              if (errorStatus === 429) {
-                reject(new Error('Gemini API quota exceeded or rate limit reached. Please wait and try again.'));
-                return;
-              }
-              
-              reject(new Error(`Gemini API error (${errorStatus}): ${errorMessage}`));
-              return;
-            }
-            
-            // Extract successful response
-            const response = parsed as GeminiResponse;
-            if (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
-              resolve(response.candidates[0].content.parts[0].text);
-            } else {
-              reject(new Error('Unexpected response format from Gemini API'));
-            }
-          } catch (parseError) {
-            reject(new Error(`Failed to parse Gemini response: ${parseError}`));
-          }
-        });
-      });
-      
-      req.on('error', (error: NodeJS.ErrnoException) => {
-        if (error.code === 'ECONNREFUSED') {
-          reject(new Error('Network error: Connection refused. Check your internet connection.'));
-        } else if (error.code === 'ETIMEDOUT') {
-          reject(new Error('Network error: Request timeout. Check your internet connection.'));
-        } else if (error.code === 'ENOTFOUND') {
-          reject(new Error('Network error: DNS resolution failed. Check your internet connection.'));
-        } else if (error.message?.includes('certificate')) {
-          reject(new Error('TLS error: Certificate verification failed. This is a Windows certificate store issue, but the request may still succeed.'));
-        } else {
-          reject(new Error(`Network error: ${error.message}`));
-        }
-      });
-      
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Request timeout (30s). Check your internet connection.'));
-      });
-      
-      req.write(requestBody);
-      req.end();
-    });
-    
-  } catch (error: any) {
-    // If it's already our formatted error, re-throw it
-    if (error.message?.startsWith('Authentication failed') ||
-        error.message?.startsWith('Model ') ||
-        error.message?.startsWith('Permission denied') ||
-        error.message?.startsWith('Gemini API')) {
-      throw error;
-    }
-    
-    // Generic error
-    throw new Error(`Gemini API error: ${error.message || 'Unknown error occurred'}`);
-  }
-}
+// callGemini function removed - now using aiProviderService
 
 // =====================================================
 // Core LLM Functions
@@ -368,7 +235,7 @@ Respond ONLY with valid JSON, no markdown formatting.
 
   addToConversationContext(callId, 'user', transcriptChunk);
   
-  const response = await callGemini(prompt);
+  const response = await callAIProvider(TaskType.TRANSCRIPT_ANALYSIS, prompt, callId);
   addToConversationContext(callId, 'model', response);
   
   try {
@@ -417,7 +284,7 @@ Respond with a JSON object containing:
 Respond ONLY with valid JSON, no markdown formatting.
 `;
 
-  const response = await callGemini(prompt);
+  const response = await callAIProvider(TaskType.STAGE_SUGGESTION, prompt, callId);
   
   try {
     const parsed = JSON.parse(response.trim());
@@ -472,7 +339,7 @@ Respond ONLY with valid JSON, no markdown formatting.
 
   addToConversationContext(callId, 'user', prospectLastWords);
   
-  const response = await callGemini(prompt);
+  const response = await callAIProvider(TaskType.RESPONSE_SUGGESTION, prompt, callId);
   addToConversationContext(callId, 'model', response);
   
   try {
@@ -549,7 +416,7 @@ Respond with a JSON object containing:
 Respond ONLY with valid JSON, no markdown formatting.
 `;
 
-    const response = await callGemini(prompt);
+    const response = await callAIProvider(TaskType.INTELLIGENCE, prompt, callId);
     
     try {
       const parsed = JSON.parse(response.trim());
@@ -662,7 +529,7 @@ Respond ONLY with valid JSON, no markdown.
 
   addToConversationContext(callId, 'user', contextToUse);
   
-  const response = await callGemini(prompt);
+  const response = await callAIProvider(TaskType.RESPONSE_SUGGESTION, prompt, callId);
   addToConversationContext(callId, 'model', response);
   
   try {

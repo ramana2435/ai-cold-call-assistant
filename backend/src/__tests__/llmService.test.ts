@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import {
   analyzeTranscript,
   suggestNextStage,
@@ -7,28 +6,18 @@ import {
   clearConversationContext,
 } from '../services/llmService';
 import { STAGE_NAMES } from '../types';
+import { callAIProvider } from '../services/aiProviderService';
 
-// Mock the @google/generative-ai module
-jest.mock('@google/generative-ai');
+// Mock the aiProviderService module
+jest.mock('../services/aiProviderService');
 
 describe('LLM Service', () => {
-  let mockGenerateContent: jest.Mock;
-  let mockGetGenerativeModel: jest.Mock;
+  let mockCallAIProvider: jest.Mock;
 
   beforeEach(() => {
     // Reset all mocks before each test
     jest.clearAllMocks();
-    mockGenerateContent = jest.fn();
-
-    // Setup mock for generateContent
-    mockGetGenerativeModel = jest.fn().mockReturnValue({
-      generateContent: mockGenerateContent,
-    });
-
-    // Mock GoogleGenerativeAI constructor
-    (GoogleGenerativeAI as jest.MockedClass<typeof GoogleGenerativeAI>).mockImplementation(() => ({
-      getGenerativeModel: mockGetGenerativeModel,
-    } as any));
+    mockCallAIProvider = callAIProvider as jest.Mock;
   });
 
   describe('analyzeTranscript', () => {
@@ -40,11 +29,7 @@ describe('LLM Service', () => {
         summary: 'Caller explained the purpose of the call',
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
       const result = await analyzeTranscript(
         'call-123',
@@ -58,8 +43,15 @@ describe('LLM Service', () => {
       expect(result.sentiment).toBe('positive');
       expect(result.summary).toBeTruthy();
 
+      // Verify taskType is transcript-analysis
+      expect(mockCallAIProvider).toHaveBeenCalledWith(
+        'transcript-analysis',
+        expect.any(String),
+        'call-123'
+      );
+      
       // Verify prompt includes stage names
-      const promptArg = mockGenerateContent.mock.calls[0][0];
+      const promptArg = mockCallAIProvider.mock.calls[0][1];
       expect(promptArg).toContain(STAGE_NAMES[1]);
       expect(promptArg).toContain(STAGE_NAMES[2]);
       expect(promptArg).toContain('Hi, I am calling to tell you about our new product features');
@@ -73,11 +65,7 @@ describe('LLM Service', () => {
         summary: 'Prospect expressed their needs',
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
       const result = await analyzeTranscript(
         'call-456',
@@ -98,11 +86,7 @@ describe('LLM Service', () => {
         summary: 'Opening',
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
       // First call
       await analyzeTranscript('call-context-test', 'Hello, this is John', 1);
@@ -110,44 +94,24 @@ describe('LLM Service', () => {
       // Second call should have context from first
       await analyzeTranscript('call-context-test', 'I am calling about our services', 2);
 
-      // Verify generateContent was called twice
-      expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+      // Verify callAIProvider was called twice
+      expect(mockCallAIProvider).toHaveBeenCalledTimes(2);
     });
 
-    it('should throw error on Gemini API failure', async () => {
-      mockGenerateContent.mockRejectedValue(new Error('Network error'));
+    it('should throw error on AI API failure', async () => {
+      mockCallAIProvider.mockRejectedValue(new Error('Network error'));
 
       await expect(
         analyzeTranscript('call-error', 'test transcript', 1)
-      ).rejects.toThrow('Gemini API error');
-    });
-
-    it('should handle quota exceeded error', async () => {
-      mockGenerateContent.mockRejectedValue(new Error('quota exceeded'));
-
-      await expect(
-        analyzeTranscript('call-quota', 'test transcript', 1)
-      ).rejects.toThrow('Gemini API quota exceeded');
-    });
-
-    it('should handle rate limit error', async () => {
-      mockGenerateContent.mockRejectedValue(new Error('rate limit reached'));
-
-      await expect(
-        analyzeTranscript('call-rate', 'test transcript', 1)
-      ).rejects.toThrow('Gemini API rate limit reached');
+      ).rejects.toThrow();
     });
 
     it('should throw error on invalid JSON response', async () => {
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => 'This is not valid JSON',
-        },
-      });
+      mockCallAIProvider.mockResolvedValue('This is not valid JSON');
 
       await expect(
         analyzeTranscript('call-invalid', 'test transcript', 1)
-      ).rejects.toThrow('Failed to parse Gemini response');
+      ).rejects.toThrow('Failed to parse');
     });
   });
 
@@ -159,11 +123,7 @@ describe('LLM Service', () => {
         reasoning: 'Prospect seems engaged, good time to ask for permission',
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
       const result = await suggestNextStage(
         'call-123',
@@ -186,11 +146,7 @@ describe('LLM Service', () => {
           reasoning: `Move to stage ${stage}`,
         };
 
-        mockGenerateContent.mockResolvedValue({
-          response: {
-            text: () => JSON.stringify(mockResponse),
-          },
-        });
+        mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
         const result = await suggestNextStage('call-stages', 1, 'test context');
         expect(result.recommendedStage).toBeGreaterThanOrEqual(1);
@@ -205,25 +161,21 @@ describe('LLM Service', () => {
         reasoning: 'Time to learn about their business',
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
       await suggestNextStage('call-123', 3, 'Prospect agreed to talk');
 
-      const promptArg = mockGenerateContent.mock.calls[0][0];
+      const promptArg = mockCallAIProvider.mock.calls[0][1];
       expect(promptArg).toContain(STAGE_NAMES[3]);
       expect(promptArg).toContain('Prospect agreed to talk');
     });
 
     it('should handle API errors gracefully', async () => {
-      mockGenerateContent.mockRejectedValue(new Error('API key invalid'));
+      mockCallAIProvider.mockRejectedValue(new Error('API key invalid'));
 
       await expect(
         suggestNextStage('call-error', 1, 'context')
-      ).rejects.toThrow('Invalid Gemini API key');
+      ).rejects.toThrow();
     });
   });
 
@@ -237,11 +189,7 @@ describe('LLM Service', () => {
         ],
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
       const result = await suggestResponse(
         'call-123',
@@ -259,11 +207,7 @@ describe('LLM Service', () => {
         responses: ['Response 1', 'Response 2', 'Response 3'],
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
       await suggestResponse(
         'call-456',
@@ -271,7 +215,7 @@ describe('LLM Service', () => {
         'Objection'
       );
 
-      const promptArg = mockGenerateContent.mock.calls[0][0];
+      const promptArg = mockCallAIProvider.mock.calls[0][1];
       expect(promptArg).toContain('Objection');
       expect(promptArg).toContain('I am not sure if this is right for us');
     });
@@ -281,18 +225,14 @@ describe('LLM Service', () => {
         responses: ['Response 1', 'Response 2', 'Response 3'],
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
       // Build up some conversation history
       await analyzeTranscript('call-history', 'First message', 1);
       await suggestResponse('call-history', 'Second message', 'Opening');
 
       // Verify history is used
-      expect(mockGenerateContent).toHaveBeenCalled();
+      expect(mockCallAIProvider).toHaveBeenCalled();
     });
 
     it('should handle empty responses array', async () => {
@@ -300,11 +240,7 @@ describe('LLM Service', () => {
         responses: [],
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
       const result = await suggestResponse('call-empty', 'test', 'Opening');
       expect(result.responses).toEqual([]);
@@ -320,11 +256,7 @@ describe('LLM Service', () => {
         confidenceScore: 0.85,
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
       // Build conversation history first
       await analyzeTranscript('call-intel', 'Hello, this is a test call', 1);
@@ -353,11 +285,7 @@ describe('LLM Service', () => {
         confidenceScore: 0.7,
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
       // Build multi-turn conversation
       await analyzeTranscript('call-complete', 'Opening statement', 1);
@@ -378,11 +306,7 @@ describe('LLM Service', () => {
         summary: 'test',
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
       // Add some conversation history
       await analyzeTranscript('call-clear', 'Test message', 1);
@@ -403,11 +327,7 @@ describe('LLM Service', () => {
         summary: 'test',
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockResponse));
 
       // Add history to two different calls
       await analyzeTranscript('call-1', 'Message 1', 1);
@@ -424,11 +344,7 @@ describe('LLM Service', () => {
         confidenceScore: 0.6,
       };
 
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => JSON.stringify(mockIntelResponse),
-        },
-      });
+      mockCallAIProvider.mockResolvedValue(JSON.stringify(mockIntelResponse));
 
       const result = await getCallIntelligence('call-2');
       expect(result.confidenceScore).toBeGreaterThan(0.5);
@@ -437,7 +353,7 @@ describe('LLM Service', () => {
 
   describe('Error handling', () => {
     it('should handle network errors', async () => {
-      mockGenerateContent.mockRejectedValue(new Error('Network timeout'));
+      mockCallAIProvider.mockRejectedValue(new Error('Network timeout'));
 
       await expect(
         analyzeTranscript('call-network', 'test', 1)
@@ -445,11 +361,7 @@ describe('LLM Service', () => {
     });
 
     it('should handle malformed responses', async () => {
-      mockGenerateContent.mockResolvedValue({
-        response: {
-          text: () => '{ incomplete json',
-        },
-      });
+      mockCallAIProvider.mockResolvedValue('{ incomplete json');
 
       await expect(
         suggestNextStage('call-malformed', 1, 'context')

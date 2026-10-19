@@ -1,6 +1,6 @@
 // Visual Assistance Service - Context-Aware Visual Suggestions
 import { StageName } from '../types';
-import config from '../config/index';
+import { callAIProvider, TaskType } from './aiProviderService';
 
 // Type definitions
 export interface VisualSuggestion {
@@ -120,109 +120,7 @@ function buildKnowledgeContextString(knowledgeContext?: { product?: any; organiz
   return context;
 }
 
-/**
- * Call Gemini API using native HTTPS (matching llmService.ts pattern)
- */
-async function callGemini(prompt: string): Promise<string> {
-  try {
-    const https = await import('https');
-    const { URL } = await import('url');
-    
-    const apiUrl = new URL(`https://generativelanguage.googleapis.com/v1beta/models/${config.gemini.model}:generateContent?key=${config.gemini.apiKey}`);
-    
-    const requestBody = JSON.stringify({
-      contents: [{
-        parts: [{ text: prompt }]
-      }]
-    });
-    
-    return new Promise((resolve, reject) => {
-      const options = {
-        hostname: apiUrl.hostname,
-        port: 443,
-        path: apiUrl.pathname + apiUrl.search,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(requestBody)
-        },
-        timeout: 30000,
-      };
-      
-      const req = https.request(options, (res) => {
-        let data = '';
-        
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            
-            // Check for API errors
-            if (parsed.error) {
-              const errorStatus = parsed.error.code || res.statusCode;
-              const errorMessage = parsed.error.message || 'Unknown error';
-              
-              if (errorStatus === 401) {
-                reject(new Error('Authentication failed. Verify GEMINI_API_KEY in backend .env is correct and not expired.'));
-                return;
-              }
-              if (errorStatus === 404) {
-                reject(new Error(`Model "${config.gemini.model}" not available. Current supported model: gemini-3.5-flash.`));
-                return;
-              }
-              if (errorStatus === 403) {
-                reject(new Error('Permission denied. Your API key may lack access to this model.'));
-                return;
-              }
-              if (errorStatus === 429) {
-                reject(new Error('Gemini API quota exceeded or rate limit reached. Please wait and try again.'));
-                return;
-              }
-              
-              reject(new Error(`Gemini API error (${errorStatus}): ${errorMessage}`));
-              return;
-            }
-            
-            // Extract successful response
-            if (parsed.candidates && parsed.candidates[0]?.content?.parts?.[0]?.text) {
-              resolve(parsed.candidates[0].content.parts[0].text);
-            } else {
-              reject(new Error('Unexpected response format from Gemini API'));
-            }
-          } catch (parseError) {
-            reject(new Error(`Failed to parse Gemini response: ${parseError}`));
-          }
-        });
-      });
-      
-      req.on('error', (error: NodeJS.ErrnoException) => {
-        if (error.code === 'ECONNREFUSED') {
-          reject(new Error('Network error: Connection refused. Check your internet connection.'));
-        } else if (error.code === 'ETIMEDOUT') {
-          reject(new Error('Network error: Request timeout. Check your internet connection.'));
-        } else if (error.code === 'ENOTFOUND') {
-          reject(new Error('Network error: DNS resolution failed. Check your internet connection.'));
-        } else {
-          reject(new Error(`Network error: ${error.message}`));
-        }
-      });
-      
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Request timeout (30s). Check your internet connection.'));
-      });
-      
-      req.write(requestBody);
-      req.end();
-    });
-    
-  } catch (error: any) {
-    throw new Error(`Gemini API error: ${error.message || 'Unknown error occurred'}`);
-  }
-}
+// callGemini removed - now using aiProviderService
 
 /**
  * Analyze call context and generate visual suggestions
@@ -278,7 +176,7 @@ Respond ONLY with valid JSON, no markdown formatting.
   console.log(`[Visual Assistance] Generating suggestions for call ${callId}, stage: ${currentStage}`);
   
   try {
-    const response = await callGemini(prompt);
+    const response = await callAIProvider(TaskType.VISUAL_CONTEXT, prompt, callId);
     const parsed = JSON.parse(response.trim());
     
     if (!parsed.suggestions || !Array.isArray(parsed.suggestions)) {
