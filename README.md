@@ -232,6 +232,22 @@ npm test
 - **[backend/README.md](./backend/README.md)** - Backend documentation
 - **[database/README.md](./database/README.md)** - Database schema docs
 
+
+## 🚀 Live Demo & Deployment
+
+- **Frontend (Vercel):** https://ai-cold-call-assistant-six.vercel.app/
+- **Backend (Render):** https://ai-cold-call-assistant.onrender.com
+- **Backend Health Check:** https://ai-cold-call-assistant.onrender.com/health
+- **Database:** Supabase (PostgreSQL)
+
+### Health Check
+
+Visit the backend health-check URL to verify the API and database connection status.
+
+### Source Code
+
+The complete frontend, backend, and database schema are available in this public GitHub repository.
+
 ## 🚀 Next Steps
 
 ### For Testing Module 1:
