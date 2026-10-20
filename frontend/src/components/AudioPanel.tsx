@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 
+// Import API_BASE to reuse the configured backend URL
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+
 interface AudioPanelProps {
   callId: string;
   onTranscriptUpdate?: (text: string, isFinal: boolean) => void;
@@ -72,7 +75,7 @@ export default function AudioPanel({ callId, onTranscriptUpdate, onAutoResponse,
   const loadTranscriptHistory = async () => {
     setLoadingHistory(true);
     try {
-      const response = await fetch(`http://localhost:3000/calls/${callId}/transcript?final=true`);
+      const response = await fetch(`${API_BASE}/calls/${callId}/transcript?final=true`);
       if (!response.ok) {
         throw new Error(`Failed to load transcript history: ${response.statusText}`);
       }
@@ -122,7 +125,7 @@ export default function AudioPanel({ callId, onTranscriptUpdate, onAutoResponse,
     
     try {
       const response = await fetch(
-        `http://localhost:3000/calls/${callId}/segments/${segmentId}/speaker-correction`,
+        `${API_BASE}/calls/${callId}/segments/${segmentId}/speaker-correction`,
         {
           method: 'POST',
           headers: {
@@ -201,9 +204,10 @@ export default function AudioPanel({ callId, onTranscriptUpdate, onAutoResponse,
       setMicPermission('granted');
       setStatus('Connecting to speech service...');
 
-      // Connect to backend WebSocket
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${wsProtocol}//${window.location.hostname}:3000/ws/calls/${callId}/transcribe`;
+      // Connect to backend WebSocket - derive URL from API_BASE
+      const apiUrl = new URL(API_BASE);
+      const wsProtocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProtocol}//${apiUrl.host}/ws/calls/${callId}/transcribe`;
       
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
